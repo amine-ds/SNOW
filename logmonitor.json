@@ -21,6 +21,12 @@
         "produces" : [ "application/json" ],
         "consumes" : [ "application/json" ],
         "parameters" : [ {
+          "name" : "offset",
+          "in" : "query",
+          "description" : null,
+          "required" : false,
+          "type" : "number"
+        }, {
           "name" : "icSessionId",
           "in" : "header",
           "description" : null,
