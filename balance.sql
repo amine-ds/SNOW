@@ -15,7 +15,7 @@ FORMAT(GETDATE(), 'dd/MM/yyyy') as date_piece,
 UNION ALL
  
 SELECT DISTINCT
-'005592' AS Code_vendeur,
+'008389' AS Code_vendeur,
 FORMAT(GETDATE(), 'dd/MM/yyyy') AS date_du_jour,
 C8.TIERS as  code_client,
 CONCAT(C8.PREFPIECE, C8.PIECE) AS num_facture,
@@ -31,7 +31,7 @@ FROM [ODS].[DIVALTO_C8] C8
 left join [TECH].[TRANSCO_CODE_JNL] JNL 
 ON C8.JNL = JNL.CODE_JNL_DIVALTO
 WHERE C8.TIERS LIKE '%C0%'
-AND C8.DOS = 'CHA' 
+AND C8.DOS = 'ALP' 
 and  C8.CPTCOL LIKE '%411200%'
 --AND C8.PINOTIERS != ''
 --and C8.ECHDT IS NOT NULL
