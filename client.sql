@@ -1,20 +1,20 @@
--- REQUETE CLIENT FACTOFRANCE POUR LA SOCIETE CHAMPAGNE
+-- REQUETE CLIENT FACTOFRANCE POUR LA SOCIETE MARTIGUES
 SELECT
   '000000' AS Code_vendeur,
   'DEB' AS Code_client,
-  '42121668000049' AS Identfiant_tiers,
-  'PRO ARMATURE CHAMPAGNE' AS Sigle_tiers,
-  'PRO ARMATURE CHAMPAGNE' AS Raison_sociale_du_tiers,
-  '41 AVENUE DES MARTYRS DU 24 AOUT' AS Adresse_tiers,
-  '-' AS Complement_adresse_tiers,
-  '10800' AS Code_postal,
-  'BUCHERES' AS Ville,
-  'FR' AS Code_pays
+  '80826244800018' as Identfiant_tiers,
+'PRO ARMATURE MARTIGUES' as Sigle_tiers,
+'PRO ARMATURE MARTIGUES' as Raison_sociale_du_tiers,
+'CS 64040' as Adresse_tiers,
+'4 RUE DU DAUPHINÉ' as Complement_adresse_tiers,
+'69960' as Code_postal,
+'CORBAS - CEDEX' as Ville,
+'FR' as Code_pays
 
 UNION ALL
 
 SELECT DISTINCT
-  '005592' AS Code_vendeur,
+  '007934' AS Code_vendeur,
   CLI.tiers AS Code_client,
   CLI.SIRET AS Identfiant_tiers,
   CLI.NOM AS Sigle_tiers,
@@ -31,24 +31,23 @@ JOIN ODS.DIVALTO_C8 C8
 		
 		WHERE
 		  C8.CPTCOL LIKE '%411200%'
-		  AND CLI.DOS = 'CHA'
+		  AND CLI.DOS = 'MAR'
 		  AND CLI.ZONA != ''
 		  and ( C8.LETT = '' or  C8.LETT like '*%') 
 		  and C8.TIERS LIKE '%C0%'
-
 
 UNION ALL
 
 SELECT
   '999999' AS Code_vendeur,
   'FIN' AS Code_client,
- '42121668000049' AS Identfiant_tiers,
-  'PRO ARMATURE CHAMPAGNE' AS Sigle_tiers,
-  'PRO ARMATURE CHAMPAGNE' AS Raison_sociale_du_tiers,
-  '41 AVENUE DES MARTYRS DU 24 AOUT' AS Adresse_tiers,
-  '-' AS Complement_adresse_tiers,
-  '10800' AS Code_postal,
-  'BUCHERES' AS Ville,
-  'FR' AS Code_pays
+  '80826244800018' as Identfiant_tiers,
+'PRO ARMATURE MARTIGUES' as Sigle_tiers,
+'PRO ARMATURE MARTIGUES' as Raison_sociale_du_tiers,
+'CS 64040' as Adresse_tiers,
+'4 RUE DU DAUPHINÉ' as Complement_adresse_tiers,
+'69960' as Code_postal,
+'CORBAS - CEDEX' as Ville,
+'FR' as Code_pays
 
 ;
