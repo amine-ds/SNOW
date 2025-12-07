@@ -44,7 +44,7 @@ jobs:
 
         try:
             # ✅ Contexte obligatoire (corrige ton erreur actuelle)
-            cs.execute("USE DATABASE QUAL_EMEA")
+            cs.execute("USE DATABASE QUA_EMEA")
             cs.execute("USE SCHEMA SILV")
             cs.execute("USE WAREHOUSE COMPUTE_WH")
 
