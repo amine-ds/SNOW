@@ -1,4 +1,4 @@
-CREATE TABLE BROZ.Address(
+CREATE OR REPLACE TABLE BROZ.Address(
 	AddressID INTEGER ,
 	AddressLine1 varchar(60) ,
 	AddressLine2 varchar(60) ,
