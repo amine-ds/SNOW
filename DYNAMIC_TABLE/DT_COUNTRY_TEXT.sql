@@ -6,5 +6,5 @@ create or replace dynamic table SILV.DT_COUNTRY_TEXT(
  as
         select SPRAS AS SPRAS,
 	LAND1 as LAND1,
-	TXTSH 
+	TXTSH as TXTSH
         from BROZ."0COUNTRY_TEXT";

@@ -11,7 +11,7 @@ create or replace dynamic table SILV.GL_ACCOUNT_TEXT(
  as
         select LANGU AS LANGU ,
 	KEY1 as KEY1,
-	KEY2 ,
+	KEY2 as KEY2,
 	DATETO ,
 	DATEFROM ,
 	TXTSH ,
