@@ -1,0 +1,83 @@
+name: Deploy Snowflake Objects (MANUAL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "QUA"
+        type: choice
+        options: [DEV, QUA, PRD]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Snowflake Connector
+      run: |
+        python -m pip install --upgrade pip
+        pip install snowflake-connector-python
+
+    - name: Deploy from deploy.txt
+      env:
+        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+        SF_USER: ${{ secrets.SF_USER }}
+        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+        TARGET_ENV: ${{ github.event.inputs.environment }}
+      run: |
+        python <<EOF
+        import snowflake.connector, os, sys
+
+        ENV = os.environ["TARGET_ENV"]
+        MAP = {
+          "DEV": {"db":"DEV_EMEA","wh":"DEV_DATA"},
+          "QUA": {"db":"QUA_EMEA","wh":"QUA_DATA"},
+          "PRD": {"db":"PRD_EMEA","wh":"PRD_DATA"}
+        }
+        conf = MAP[ENV]
+
+        ctx = snowflake.connector.connect(
+          user=os.environ["SF_USER"],
+          password=os.environ["SF_PASSWORD"],
+          account=os.environ["SF_ACCOUNT"],
+          role="SYSADMIN"
+        )
+        cs = ctx.cursor()
+
+        FOLDERS = ["TABLE","DYNAMIC_TABLE","VIEW","STORED_PROCEDURE"]
+
+        with open("deploy.txt") as f:
+          objects = [l.strip() for l in f if l.strip()]
+
+        failed = False
+        cs.execute(f"USE DATABASE {conf['db']}")
+        cs.execute("USE SCHEMA SILV")
+
+        for obj in objects:
+          found = False
+          for folder in FOLDERS:
+            path = f"{folder}/{obj}"
+            if os.path.exists(path):
+              found = True
+              with open(path) as s: sql = s.read()
+              sql = sql.replace("DEV_EMEA", conf["db"])
+              sql = sql.replace("warehouse = DEV_DATA", f"warehouse = {conf['wh']}")
+              try:
+                cs.execute(sql)
+                print(f"✅ {obj}")
+              except Exception as e:
+                print(f"❌ {obj} -> {e}")
+                failed = True
+              break
+          if not found:
+            print(f"❌ NOT FOUND: {obj}")
+            failed = True
+
+        cs.close()
+        ctx.close()
+        if failed: sys.exit(1)
+        EOF
