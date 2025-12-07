@@ -1,0 +1,35 @@
+name: Deploy Snowflake Tables to QUAL
+
+on:
+  push:
+    branches:
+      - main   # ou la branche que tu utilises pour QUAL
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install SnowSQL
+      run: |
+        curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-linux_x86_64
+        chmod +x snowsql-linux_x86_64
+        sudo mv snowsql-linux_x86_64 /usr/local/bin/snowsql
+
+    - name: Deploy tables to QUAL
+      run: |
+        for file in TABLE/*.sql
+        do
+          echo "🚀 Deploying $file"
+          snowsql -a ${{ secrets.SF_ACCOUNT }} \
+                  -u ${{ secrets.SF_USER }} \
+                  -r SYSADMIN \
+                  -d QUAL_EMEA \
+                  -w COMPUTE_WH \
+                  -f "$file"
+        done
+      env:
+        SNOWSQL_PWD: ${{ secrets.SF_PASSWORD }}
