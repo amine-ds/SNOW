@@ -1,0 +1,126 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "QUA"
+        type: choice
+        options:
+          - DEV
+          - QUA
+          - PRD
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo (current branch)
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.environment }}
+
+    - name: Install Snowflake Connector
+      run: |
+        pip install snowflake-connector-python
+
+    - name: Deploy from deploy_tmp.txt
+      env:
+        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+        SF_USER: ${{ secrets.SF_USER }}
+        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+        TARGET_ENV: ${{ github.event.inputs.environment }}
+      run: |
+        python <<EOF
+        import snowflake.connector
+        import os
+        import sys
+
+        target_env = os.environ["TARGET_ENV"]
+
+        ENV_MAPPING = {
+            "DEV": {"db": "DEV_EMEA", "wh": "DEV_DATA"},
+            "QUA": {"db": "QUA_EMEA", "wh": "QUA_DATA"},
+            "PRD": {"db": "PRD_EMEA", "wh": "PRD_DATA"},
+        }
+
+        env_conf = ENV_MAPPING[target_env]
+
+        print("Deploying to:", target_env)
+        print("Database:", env_conf["db"])
+        print("Warehouse:", env_conf["wh"])
+
+        if not os.path.exists("deploy_tmp.txt"):
+            print("❌ deploy_tmp.txt not found")
+            sys.exit(1)
+
+        with open("deploy_tmp.txt","r") as f:
+            objects = [x.strip() for x in f if x.strip()]
+
+        if not objects:
+            print("⚠️ Nothing to deploy")
+            sys.exit(0)
+
+        print("📦 Objects to deploy:")
+        for obj in objects:
+            print(" -", obj)
+
+        folders = [
+            "TABLE",
+            "DYNAMIC_TABLE",
+            "VIEW",
+            "STORED_PROCEDURE"
+        ]
+
+        ctx = snowflake.connector.connect(
+            user=os.environ["SF_USER"],
+            password=os.environ["SF_PASSWORD"],
+            account=os.environ["SF_ACCOUNT"],
+            role="SYSADMIN"
+        )
+
+        cs = ctx.cursor()
+        cs.execute(f"USE DATABASE {env_conf['db']}")
+        cs.execute("USE SCHEMA SILV")
+        cs.execute(f"USE WAREHOUSE {env_conf['wh']}")
+
+        for obj in objects:
+            found = False
+            for folder in folders:
+                path = f"{folder}/{obj}"
+                if os.path.exists(path):
+                    found = True
+                    print(f"🚀 Deploying {path}")
+
+                    sql = open(path).read()
+                    sql = sql.replace("DEV_EMEA", env_conf["db"])
+                    sql = sql.replace("warehouse = DEV_DATA", f"warehouse = {env_conf['wh']}")
+
+                    try:
+                        cs.execute(sql)
+                        print("   ✅ SUCCESS")
+                    except Exception as e:
+                        print("   ❌ FAILED:", e)
+                        sys.exit(1)
+                    break
+
+            if not found:
+                print(f"❌ Missing file: {obj}")
+                sys.exit(1)
+
+        print("🎉 Deployment SUCCESS")
+
+        EOF
+
+    - name: Clear deploy_tmp.txt after deployment
+      if: success()
+      run: |
+        echo "" > deploy_tmp.txt
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add deploy_tmp.txt
+        git commit -m "Clear deploy_tmp after deployment"
+        git push
