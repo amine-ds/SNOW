@@ -14,10 +14,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout target branch
+    - name: Checkout target branch (base)
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.base.ref }}
+        fetch-depth: 0   # ✅ important pour voir l'historique complet
 
     - name: Detect promotion type
       id: detect
@@ -37,51 +38,52 @@ jobs:
           echo "MODE=UNSUPPORTED" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Feed deploy_tmp.txt with order preserved
+    - name: Feed deploy_tmp.txt with all EXECUTEs from PR
       if: steps.detect.outputs.MODE != 'UNSUPPORTED'
       shell: bash
       run: |
         MODE="${{ steps.detect.outputs.MODE }}"
         echo "Promotion mode: $MODE"
 
-        # On travaille toujours sur le buffer de la branche cible (QUA ou PRD)
         touch deploy_tmp.txt
 
         echo "🔎 Existing deploy_tmp.txt (before):"
         cat deploy_tmp.txt || echo "(empty)"
 
         if [[ "$MODE" == "DEV_TO_QUA" ]]; then
-          echo "➡️ DEV → QUA : reading EXECUTE lines from DEV/deploy.txt"
+          echo "➡️ DEV → QUA : aggregating EXECUTE from all commits in PR (deploy.txt)"
 
-          # Récupérer le deploy.txt de DEV
-          git fetch origin DEV
-          git checkout origin/DEV -- deploy.txt
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
-          # 1) ancien buffer (ordre existant)
-          cp deploy_tmp.txt old_buffer.txt
+          # On récupère tous les commits de la PR qui touchent deploy.txt, dans l'ordre chronologique
+          git fetch origin
+          COMMITS=$(git log --reverse --pretty=format:%H "${BASE_SHA}..${HEAD_SHA}" -- deploy.txt || true)
 
-          # 2) nouvelles lignes provenant de deploy.txt (EXECUTE uniquement, sans le mot EXECUTE)
-          grep -E '^EXECUTE[[:space:]]+' deploy.txt \
-            | sed 's/^EXECUTE[[:space:]]\+//' \
-            > new_buffer.txt
+          > new_buffer.txt
 
-          echo "🔎 New entries from DEV/deploy.txt:"
+          for c in $COMMITS; do
+            echo "  🔹 Reading deploy.txt at commit $c"
+            git show "${c}:deploy.txt" 2>/dev/null \
+              | grep -E '^EXECUTE[[:space:]]+' \
+              | sed 's/^EXECUTE[[:space:]]\+//' \
+              >> new_buffer.txt || true
+          done
+
+          echo "🔎 New entries collected from PR:"
           cat new_buffer.txt || echo "(none)"
 
-          # 3) concat : ancien contenu puis nouveau, en gardant le 1er ordre
-          cat old_buffer.txt new_buffer.txt > merged_buffer.txt
-
-          # 4) déduplication SANS casser l’ordre : on garde la 1ʳᵉ occurrence
+          # Concat ancien buffer + nouvelles entrées, puis dédup SANS casser l'ordre
+          cat deploy_tmp.txt new_buffer.txt > merged_buffer.txt
           awk '!seen[$0]++' merged_buffer.txt | sed '/^$/d' > deploy_tmp.txt
 
         elif [[ "$MODE" == "QUA_TO_PRD" ]]; then
           echo "➡️ QUA → PRD : copying QUA/deploy_tmp.txt as is (order preserved)"
 
-          # On récupère simplement le buffer QUA tel quel, sans le modifier
           git fetch origin QUA
           git checkout origin/QUA -- deploy_tmp.txt
 
-          # (éventuel nettoyage des lignes vides, sans toucher à l’ordre)
+          # Nettoyage léger des lignes vides (ordre conservé)
           awk 'NF>0' deploy_tmp.txt > deploy_tmp_clean.txt
           mv deploy_tmp_clean.txt deploy_tmp.txt
         fi
@@ -97,5 +99,5 @@ jobs:
         git config user.email "github-actions@github.com"
 
         git add deploy_tmp.txt
-        git commit -m "Feed deploy_tmp on promotion (order preserved)" || echo "No changes to commit"
+        git commit -m "Feed deploy_tmp from PR (EXECUTE, order preserved)" || echo "No changes to commit"
         git push origin "${{ github.event.pull_request.base.ref }}"
