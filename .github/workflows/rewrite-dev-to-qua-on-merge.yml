@@ -1,5 +1,4 @@
-
-name: Rewrite SQL on DEV → QUA Merge
+name: Rewrite SQL on DEV → QUA Merge (Robust)
 
 on:
   pull_request:
@@ -15,27 +14,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout QUA branch
+    - name: Checkout QUA branch (full history)
       uses: actions/checkout@v4
       with:
         ref: QUA
+        fetch-depth: 0
 
-    - name: Rewrite SQL for QUA
+    - name: Rewrite SQL for QUA (robust replace)
       run: |
-        echo "🔁 Rewriting warehouse and database for QUA..."
+        echo "🔁 Rewriting SQL for QUA environment..."
 
-        # ✅ Warehouse
-        find . -type f -name "*.sql" -exec sed -i 's/warehouse *= *DEV_DATA/warehouse = QUA_DATA/g' {} \;
-        find . -type f -name "*.sql" -exec sed -i 's/WAREHOUSE *= *DEV_DATA/WAREHOUSE = QUA_DATA/g' {} \;
+        # ✅ Warehouse (robuste : espaces + casse)
+        find . -type f -name "*.sql" -exec sed -i -E 's/[Ww][Aa][Rr][Ee][Hh][Oo][Uu][Ss][Ee][[:space:]]*=[[:space:]]*DEV_DATA/WAREHOUSE = QUA_DATA/g' {} \;
 
-        # ✅ Database
-        find . -type f -name "*.sql" -exec sed -i 's/DEV_EMEA/QUA_EMEA/g' {} \;
+        # ✅ Database (robuste)
+        find . -type f -name "*.sql" -exec sed -i -E 's/DEV_EMEA/QUA_EMEA/g' {} \;
 
-    - name: Commit & push changes into QUA
+    - name: Commit & push rewritten SQL into QUA
       run: |
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
 
+        git status
         git add .
-        git commit -m "AUTO: Promote DEV → QUA (warehouse + db)" || echo "No changes to commit"
+        git commit -m "AUTO: Promote DEV → QUA (robust rewrite warehouse + db)" || echo "No changes to commit"
         git push origin QUA
