@@ -1,4 +1,4 @@
-name: Deploy Snowflake Objects (Branch + Env Aware)
+name: Deploy 
 
 on:
   workflow_dispatch:
