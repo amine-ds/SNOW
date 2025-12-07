@@ -10,50 +10,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # ✅ 1. Récupération du code depuis GitHub
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # ✅ 2. Installation de Python et du connecteur Snowflake
     - name: Install Python & Snowflake Connector
       run: |
         python -m pip install --upgrade pip
         pip install snowflake-connector-python
 
+    # ✅ 3. Déploiement des tables dans Snowflake QUAL
     - name: Deploy tables to QUAL
-    env:
-      SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
-      SF_USER: ${{ secrets.SF_USER }}
-      SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+      env:
+        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+        SF_USER: ${{ secrets.SF_USER }}
+        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
       run: |
         python <<EOF
         import snowflake.connector
         import glob
         import os
-    
+
+        # ✅ Connexion Snowflake
         ctx = snowflake.connector.connect(
             user=os.environ["SF_USER"],
             password=os.environ["SF_PASSWORD"],
             account=os.environ["SF_ACCOUNT"],
             role="SYSADMIN"
         )
-    
+
         cs = ctx.cursor()
-    
+
         try:
-            # ✅ FIX CONTEXTE OBLIGATOIRE
+            # ✅ Contexte obligatoire (corrige ton erreur actuelle)
             cs.execute("USE DATABASE QUAL_EMEA")
             cs.execute("USE SCHEMA SILV")
             cs.execute("USE WAREHOUSE COMPUTE_WH")
-    
+
+            # ✅ Déploiement automatique de tous les fichiers SQL
             for file in glob.glob("TABLE/*.sql"):
                 print(f"🚀 Deploying {file}")
                 with open(file, "r") as f:
                     sql = f.read()
                     cs.execute(sql)
-    
+
             print("✅ All tables deployed successfully")
-    
+
         finally:
             cs.close()
             ctx.close()
         EOF
-    
