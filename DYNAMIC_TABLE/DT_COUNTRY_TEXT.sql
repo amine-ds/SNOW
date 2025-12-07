@@ -7,4 +7,4 @@ create or replace dynamic table SILV.DT_COUNTRY_TEXT(
         select SPRAS ,
 	LAND1 ,
 	TXTSH 
-        from DEV_EMEA.BROZ."0COUNTRY_TEXT";
+        from BROZ."0COUNTRY_TEXT";
