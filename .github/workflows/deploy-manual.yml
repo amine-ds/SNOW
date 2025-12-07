@@ -1,0 +1,115 @@
+name: Deploy Snowflake Tables (Manual & Multi-Env)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Choose target environment"
+        required: true
+        default: "QUAL"
+        type: choice
+        options:
+          - DEV
+          - QUAL
+          - PROD
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Snowflake Python Connector
+      run: |
+        python -m pip install --upgrade pip
+        pip install snowflake-connector-python
+
+    - name: Deploy selected tables
+      env:
+        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+        SF_USER: ${{ secrets.SF_USER }}
+        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+        TARGET_ENV: ${{ github.event.inputs.environment }}
+      run: |
+        python <<EOF
+        import snowflake.connector
+        import os
+        import sys
+
+        env = os.environ["TARGET_ENV"]
+
+        # ✅ Mapping ENV → Database
+        DB_MAPPING = {
+            "DEV": "DEV_EMEA",
+            "QUAL": "QUAL_EMEA",
+            "PROD": "PRD_EMEA"
+        }
+
+        database = DB_MAPPING.get(env)
+
+        if not database:
+            print("❌ Invalid environment")
+            sys.exit(1)
+
+        print(f"🎯 Target environment: {env}")
+        print(f"🎯 Target database: {database}")
+
+        ctx = snowflake.connector.connect(
+            user=os.environ["SF_USER"],
+            password=os.environ["SF_PASSWORD"],
+            account=os.environ["SF_ACCOUNT"],
+            role="SYSADMIN"
+        )
+
+        cs = ctx.cursor()
+
+        failed = False
+
+        try:
+            # ✅ Lecture du fichier deploy.txt
+            if not os.path.exists("deploy.txt"):
+                print("❌ deploy.txt file not found")
+                sys.exit(1)
+
+            with open("deploy.txt", "r") as f:
+                files = [line.strip() for line in f if line.strip()]
+
+            print("📦 Tables selected for deployment:")
+            for f in files:
+                print("  -", f)
+
+            for file in files:
+                path = f"TABLE/{file}"
+
+                if not os.path.exists(path):
+                    print(f"❌ Missing file: {path}")
+                    failed = True
+                    continue
+
+                print(f"\n🚀 Deploying {path}")
+
+                with open(path, "r") as sql_file:
+                    sql = sql_file.read()
+
+                # ✅ Remplacement dynamique de l'environnement
+                sql = sql.replace("{{ENV}}", database)
+
+                try:
+                    cs.execute(sql)
+                    print("✅ SUCCESS")
+                except Exception as e:
+                    print("❌ FAILED:", str(e))
+                    failed = True
+
+            if failed:
+                print("\n❌ Deployment finished with ERRORS")
+                sys.exit(1)
+            else:
+                print("\n✅ Deployment finished SUCCESSFULLY")
+
+        finally:
+            cs.close()
+            ctx.close()
+        EOF
