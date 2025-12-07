@@ -13,10 +13,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install SnowSQL (Official Installer)
+    - name: Install SnowSQL (Safe Linux Binary)
       run: |
-        curl -s https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-linux_x86_64.bash | bash
-        echo "$HOME/bin" >> $GITHUB_PATH
+        sudo apt-get update
+        sudo apt-get install -y unzip
+        curl -L -o snowsql.zip https://sfc-repo.snowflakecomputing.com/snowsql/linux_x86_64/snowsql-latest-linux_x86_64.zip
+        unzip snowsql.zip
+        sudo mv snowsql /usr/local/bin/snowsql
+        chmod +x /usr/local/bin/snowsql
 
     - name: Deploy tables to QUAL
       env:
