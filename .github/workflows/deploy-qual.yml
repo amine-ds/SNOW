@@ -1,4 +1,4 @@
-name: Deploy Snowflake Tables to QUAL
+name: Deploy Snowflake Tables to QUAL (Python)
 
 on:
   push:
@@ -13,26 +13,43 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install SnowSQL (Safe Linux Binary)
+    - name: Install Python & Snowflake Connector
       run: |
-        sudo apt-get update
-        sudo apt-get install -y unzip
-        curl -L -o snowsql.zip https://sfc-repo.snowflakecomputing.com/snowsql/linux_x86_64/snowsql-latest-linux_x86_64.zip
-        unzip snowsql.zip
-        sudo mv snowsql /usr/local/bin/snowsql
-        chmod +x /usr/local/bin/snowsql
+        python -m pip install --upgrade pip
+        pip install snowflake-connector-python
 
     - name: Deploy tables to QUAL
       env:
-        SNOWSQL_PWD: ${{ secrets.SF_PASSWORD }}
+        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+        SF_USER: ${{ secrets.SF_USER }}
+        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
       run: |
-        for file in TABLE/*.sql
-        do
-          echo "🚀 Deploying $file"
-          snowsql -a ${{ secrets.SF_ACCOUNT }} \
-                  -u ${{ secrets.SF_USER }} \
-                  -r SYSADMIN \
-                  -d QUAL_EMEA \
-                  -w COMPUTE_WH \
-                  -f "$file"
-        done
+        python <<EOF
+        import snowflake.connector
+        import glob
+        import os
+
+        ctx = snowflake.connector.connect(
+            user=os.environ["SF_USER"],
+            password=os.environ["SF_PASSWORD"],
+            account=os.environ["SF_ACCOUNT"],
+            database="QUAL_EMEA",
+            warehouse="COMPUTE_WH",
+            role="SYSADMIN"
+        )
+
+        cs = ctx.cursor()
+
+        try:
+            for file in glob.glob("TABLE/*.sql"):
+                print(f"🚀 Deploying {file}")
+                with open(file, "r") as f:
+                    sql = f.read()
+                    cs.execute(sql)
+
+            print("✅ All tables deployed successfully")
+
+        finally:
+            cs.close()
+            ctx.close()
+        EOF
