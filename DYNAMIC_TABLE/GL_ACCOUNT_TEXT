@@ -9,7 +9,7 @@ create or replace dynamic table SILV.GL_ACCOUNT_TEXT(
 	TXTLG
 ) target_lag = '1 hour' refresh_mode = AUTO initialize = ON_CREATE warehouse = DEV_DATA
  as
-        select LANGU ,
+        select LANGU AS LANGU ,
 	KEY1 ,
 	KEY2 ,
 	DATETO ,
