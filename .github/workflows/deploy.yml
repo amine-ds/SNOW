@@ -26,7 +26,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install snowflake-connector-python
 
-    - name: Deploy selected objects (multi folders)
+    - name: Deploy selected objects (multi folders + warehouse replace)
       env:
         SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
         SF_USER: ${{ secrets.SF_USER }}
@@ -56,7 +56,6 @@ jobs:
         print(f"🎯 Database   : {env_conf['db']}")
         print(f"🎯 Warehouse  : {env_conf['wh']}")
     
-        # ✅ Connexion Snowflake
         ctx = snowflake.connector.connect(
             user=os.environ["SF_USER"],
             password=os.environ["SF_PASSWORD"],
@@ -67,7 +66,6 @@ jobs:
         cs = ctx.cursor()
         failed = False
     
-        # ✅ Dossiers supportés
         OBJECT_FOLDERS = [
             "TABLE",
             "DYNAMIC_TABLE",
@@ -76,12 +74,11 @@ jobs:
         ]
     
         try:
-            # ✅ Contexte Snowflake
+            # ✅ CONTEXTE
             cs.execute(f"USE DATABASE {env_conf['db']}")
             cs.execute("USE SCHEMA SILV")
-            cs.execute(f"USE WAREHOUSE {env_conf['wh']}")
     
-            # ✅ Lecture du fichier deploy.txt
+            # ✅ LECTURE deploy.txt
             if not os.path.exists("deploy.txt"):
                 print("❌ deploy.txt file not found")
                 sys.exit(1)
@@ -106,6 +103,13 @@ jobs:
                         with open(path, "r") as sql_file:
                             sql = sql_file.read()
     
+                        # ✅✅✅ REMPLACEMENT AUTOMATIQUE DU WAREHOUSE POUR LES DYNAMIC TABLES
+                        sql = sql.replace("warehouse = DEV_DATA", f"warehouse = {env_conf['wh']}")
+                        sql = sql.replace("WAREHOUSE = DEV_DATA", f"WAREHOUSE = {env_conf['wh']}")
+    
+                        # ✅ (Optionnel mais recommandé) Remplacement DB si jamais elle est encore en dur
+                        sql = sql.replace("DEV_EMEA", env_conf["db"])
+    
                         try:
                             cs.execute(sql)
                             print("✅ SUCCESS")
@@ -113,7 +117,7 @@ jobs:
                             print("❌ FAILED:", str(e))
                             failed = True
     
-                        break  # ✅ on arrête de chercher dans les autres dossiers
+                        break
     
                 if not found:
                     print(f"❌ Missing file in all known folders: {obj}")
@@ -130,3 +134,4 @@ jobs:
             ctx.close()
         EOF
     
+        
