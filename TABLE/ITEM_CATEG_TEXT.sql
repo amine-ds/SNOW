@@ -1,4 +1,4 @@
-create or replace TABLE "0ITEM_CATEG_TEXT" (
+create or replace TABLE BROZ."0ITEM_CATEG_TEXT" (
 	LANGU VARCHAR(1),
 	KEY1 VARCHAR(60),
 	DATETO DATE,
@@ -7,3 +7,4 @@ create or replace TABLE "0ITEM_CATEG_TEXT" (
 	TXTMD VARCHAR(40),
 	TXTLG VARCHAR(60)
 );
+
