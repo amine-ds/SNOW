@@ -14,15 +14,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # ✅ 1. On checkout la branche cible (QUA ou PRD)
+    # ✅ 1. Checkout de la branche cible (QUA ou PRD)
     - name: Checkout target branch
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.base.ref }}
 
-    # ✅ 2. On détecte le sens de la promotion
+    # ✅ 2. Détection du sens de la promotion
     - name: Detect promotion type
       id: detect
+      shell: bash
       run: |
         SOURCE="${{ github.event.pull_request.head.ref }}"
         TARGET="${{ github.event.pull_request.base.ref }}"
@@ -30,20 +31,53 @@ jobs:
         echo "SOURCE=$SOURCE"
         echo "TARGET=$TARGET"
 
-        if [ "$SOURCE" = "DEV" ] && [ "$TARGET" = "QUA" ]; then
-          echo "MODE=DEV_TO_QUA" >> $GITHUB_OUTPUT
-        elif [ "$SOURCE" = "QUA" ] && [ "$TARGET" = "PRD" ]; then
-          echo "MODE=QUA_TO_PRD" >> $GITHUB_OUTPUT
+        if [[ "$SOURCE" == "DEV" && "$TARGET" == "QUA" ]]; then
+          echo "MODE=DEV_TO_QUA" >> "$GITHUB_OUTPUT"
+        elif [[ "$SOURCE" == "QUA" && "$TARGET" == "PRD" ]]; then
+          echo "MODE=QUA_TO_PRD" >> "$GITHUB_OUTPUT"
         else
-          echo "MODE=UNSUPPORTED" >> $GITHUB_OUTPUT
+          echo "MODE=UNSUPPORTED" >> "$GITHUB_OUTPUT"
         fi
 
     # ✅ 3. Alimentation du buffer selon le mode
     - name: Feed deploy_tmp.txt
       if: steps.detect.outputs.MODE != 'UNSUPPORTED'
+      shell: bash
       run: |
         MODE="${{ steps.detect.outputs.MODE }}"
         echo "Promotion mode: $MODE"
 
-        if [ "$MODE" = "DEV_TO_QUA" ]; then
-          echo "➡️ D
+        if [[ "$MODE" == "DEV_TO_QUA" ]]; then
+          echo "➡️ DEV → QUA : reading deploy.txt from DEV"
+
+          git fetch origin DEV
+          git checkout origin/DEV -- deploy.txt
+
+          touch deploy_tmp.txt
+          cat deploy.txt >> deploy_tmp.txt
+
+        elif [[ "$MODE" == "QUA_TO_PRD" ]]; then
+          echo "➡️ QUA → PRD : reading deploy_tmp.txt from QUA"
+
+          git fetch origin QUA
+          git checkout origin/QUA -- deploy_tmp.txt
+
+          touch deploy_tmp.txt
+          cat deploy_tmp.txt >> deploy_tmp.txt
+        fi
+
+        # ✅ Nettoyage du buffer (doublons + lignes vides)
+        sort -u deploy_tmp.txt | sed '/^$/d' > deploy_tmp_clean.txt
+        mv deploy_tmp_clean.txt deploy_tmp.txt
+
+    # ✅ 4. Commit dans la branche cible
+    - name: Commit deploy_tmp.txt
+      if: steps.detect.outputs.MODE != 'UNSUPPORTED'
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+
+        git add deploy_tmp.txt
+        git commit -m "Feed deploy_tmp on promotion" || echo "No changes to commit"
+        git push origin "${{ github.event.pull_request.base.ref }}"
