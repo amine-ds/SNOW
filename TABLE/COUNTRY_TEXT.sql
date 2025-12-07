@@ -1,0 +1,5 @@
+create or replace TABLE "0COUNTRY_TEXT" (
+	SPRAS VARCHAR(1),
+	LAND1 VARCHAR(3),
+	TXTSH VARCHAR(20)
+);
