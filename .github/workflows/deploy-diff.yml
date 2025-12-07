@@ -1,0 +1,93 @@
+name: Deploy Snowflake Objects (DIFF)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "QUA"
+        type: choice
+        options: [DEV, QUA, PRD]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0   # 🔴 OBLIGATOIRE pour avoir l'historique complet
+
+    - name: Install Snowflake Connector
+      run: |
+        python -m pip install --upgrade pip
+        pip install snowflake-connector-python
+
+    - name: Deploy from Git Diff
+      env:
+        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+        SF_USER: ${{ secrets.SF_USER }}
+        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+        TARGET_ENV: ${{ github.event.inputs.environment }}
+      run: |
+        python <<EOF
+        import snowflake.connector, os, sys, subprocess
+
+        ENV = os.environ["TARGET_ENV"]
+        MAP = {
+          "DEV": {"db":"DEV_EMEA","wh":"DEV_DATA"},
+          "QUA": {"db":"QUA_EMEA","wh":"QUA_DATA"},
+          "PRD": {"db":"PRD_EMEA","wh":"PRD_DATA"}
+        }
+        conf = MAP[ENV]
+        tag = f"LAST_{ENV}"
+
+        subprocess.run(["git","fetch","--tags"], check=True)
+
+        diff = subprocess.check_output(
+          ["git","diff",f"{tag}..HEAD","--name-only"]
+        ).decode().splitlines()
+
+        files = [f for f in diff if f.endswith(".sql")]
+
+        if not files:
+          print("✅ No changes detected")
+          sys.exit(0)
+
+        print("📦 Files to deploy:")
+        for f in files: print(" -", f)
+
+        ctx = snowflake.connector.connect(
+          user=os.environ["SF_USER"],
+          password=os.environ["SF_PASSWORD"],
+          account=os.environ["SF_ACCOUNT"],
+          role="SYSADMIN"
+        )
+        cs = ctx.cursor()
+
+        failed = False
+        cs.execute(f"USE DATABASE {conf['db']}")
+        cs.execute("USE SCHEMA SILV")
+
+        for path in files:
+          with open(path) as s: sql = s.read()
+          sql = sql.replace("DEV_EMEA", conf["db"])
+          sql = sql.replace("warehouse = DEV_DATA", f"warehouse = {conf['wh']}")
+
+          try:
+            cs.execute(sql)
+            print(f"✅ {path}")
+          except Exception as e:
+            print(f"❌ {path} -> {e}")
+            failed = True
+
+        cs.close()
+        ctx.close()
+
+        if failed:
+          sys.exit(1)
+
+        subprocess.run(["git","tag","-f",tag], check=True)
+        subprocess.run(["git","push","origin",tag,"--force"], check=True)
+        EOF
