@@ -3,7 +3,7 @@ name: Deploy Snowflake Tables to QUAL
 on:
   push:
     branches:
-      - main   # ou la branche que tu utilises pour QUAL
+      - main
 
 jobs:
   deploy:
@@ -13,13 +13,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install SnowSQL
+    - name: Install SnowSQL (Official Installer)
       run: |
-        curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-linux_x86_64
-        chmod +x snowsql-linux_x86_64
-        sudo mv snowsql-linux_x86_64 /usr/local/bin/snowsql
+        curl -s https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-linux_x86_64.bash | bash
+        echo "$HOME/bin" >> $GITHUB_PATH
 
     - name: Deploy tables to QUAL
+      env:
+        SNOWSQL_PWD: ${{ secrets.SF_PASSWORD }}
       run: |
         for file in TABLE/*.sql
         do
@@ -31,5 +32,3 @@ jobs:
                   -w COMPUTE_WH \
                   -f "$file"
         done
-      env:
-        SNOWSQL_PWD: ${{ secrets.SF_PASSWORD }}
