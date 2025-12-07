@@ -1,4 +1,3 @@
-
 name: Rewrite SQL on DEV → QUA Merge
 
 on:
@@ -19,23 +18,37 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: QUA
+        fetch-depth: 0
 
-    - name: Rewrite SQL for QUA
+    - name: Show occurrences BEFORE rewrite
       run: |
-        echo "🔁 Rewriting warehouse and database for QUA..."
+        echo "🔍 DEV_DATA occurrences BEFORE rewrite:"
+        grep -R --line-number "DEV_DATA" . || echo "No DEV_DATA found"
 
-        # ✅ Warehouse
-        find . -type f -name "*.sql" -exec sed -i 's/warehouse *= *DEV_DATA/warehouse = QUA_DATA/g' {} \;
-        find . -type f -name "*.sql" -exec sed -i 's/WAREHOUSE *= *DEV_DATA/WAREHOUSE = QUA_DATA/g' {} \;
+    - name: Rewrite SQL for QUA (simple replace)
+      run: |
+        echo "🔁 Rewriting DEV_DATA → QUA_DATA and DEV_EMEA → QUA_EMEA"
 
-        # ✅ Database
+        # ✅ Remplacer exactement 'warehouse = DEV_DATA'
+        find . -type f -name "*.sql" -exec sed -i 's/warehouse = DEV_DATA/warehouse = QUA_DATA/g' {} \;
+
+        # ✅ Si jamais c'est en majuscule
+        find . -type f -name "*.sql" -exec sed -i 's/WAREHOUSE = DEV_DATA/WAREHOUSE = QUA_DATA/g' {} \;
+
+        # ✅ Base DEV_EMEA → QUA_EMEA (si tu l'utilises dans tes scripts)
         find . -type f -name "*.sql" -exec sed -i 's/DEV_EMEA/QUA_EMEA/g' {} \;
+
+    - name: Show occurrences AFTER rewrite
+      run: |
+        echo "🔍 DEV_DATA occurrences AFTER rewrite:"
+        grep -R --line-number "DEV_DATA" . || echo "No DEV_DATA found"
 
     - name: Commit & push changes into QUA
       run: |
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
 
+        git status
         git add .
-        git commit -m "AUTO: Promote DEV → QUA (warehouse + db)" || echo "No changes to commit"
+        git commit -m "AUTO: Rewrite DEV → QUA (warehouse + db)" || echo "No changes to commit"
         git push origin QUA
