@@ -19,37 +19,41 @@ jobs:
         pip install snowflake-connector-python
 
     - name: Deploy tables to QUAL
-      env:
-        SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
-        SF_USER: ${{ secrets.SF_USER }}
-        SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
+    env:
+      SF_ACCOUNT: ${{ secrets.SF_ACCOUNT }}
+      SF_USER: ${{ secrets.SF_USER }}
+      SF_PASSWORD: ${{ secrets.SF_PASSWORD }}
       run: |
         python <<EOF
         import snowflake.connector
         import glob
         import os
-
+    
         ctx = snowflake.connector.connect(
             user=os.environ["SF_USER"],
             password=os.environ["SF_PASSWORD"],
             account=os.environ["SF_ACCOUNT"],
-            database="QUAL_EMEA",
-            warehouse="COMPUTE_WH",
             role="SYSADMIN"
         )
-
+    
         cs = ctx.cursor()
-
+    
         try:
+            # ✅ FIX CONTEXTE OBLIGATOIRE
+            cs.execute("USE DATABASE QUAL_EMEA")
+            cs.execute("USE SCHEMA SILV")
+            cs.execute("USE WAREHOUSE COMPUTE_WH")
+    
             for file in glob.glob("TABLE/*.sql"):
                 print(f"🚀 Deploying {file}")
                 with open(file, "r") as f:
                     sql = f.read()
                     cs.execute(sql)
-
+    
             print("✅ All tables deployed successfully")
-
+    
         finally:
             cs.close()
             ctx.close()
         EOF
+    
