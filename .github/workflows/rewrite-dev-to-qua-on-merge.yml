@@ -1,0 +1,41 @@
+
+name: Rewrite SQL on DEV → QUA Merge
+
+on:
+  pull_request:
+    branches:
+      - QUA
+    types:
+      - closed
+
+jobs:
+  rewrite:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'QUA' && github.event.pull_request.head.ref == 'DEV'
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout QUA branch
+      uses: actions/checkout@v4
+      with:
+        ref: QUA
+
+    - name: Rewrite SQL for QUA
+      run: |
+        echo "🔁 Rewriting warehouse and database for QUA..."
+
+        # ✅ Warehouse
+        find . -type f -name "*.sql" -exec sed -i 's/warehouse *= *DEV_DATA/warehouse = QUA_DATA/g' {} \;
+        find . -type f -name "*.sql" -exec sed -i 's/WAREHOUSE *= *DEV_DATA/WAREHOUSE = QUA_DATA/g' {} \;
+
+        # ✅ Database
+        find . -type f -name "*.sql" -exec sed -i 's/DEV_EMEA/QUA_EMEA/g' {} \;
+
+    - name: Commit & push changes into QUA
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+
+        git add .
+        git commit -m "AUTO: Promote DEV → QUA (warehouse + db)" || echo "No changes to commit"
+        git push origin QUA
