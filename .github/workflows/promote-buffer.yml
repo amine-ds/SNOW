@@ -1,0 +1,49 @@
+name: Feed deploy_tmp on promotion (DEV→QUA & QUA→PRD)
+
+on:
+  pull_request:
+    branches:
+      - QUA
+      - PRD
+    types:
+      - closed
+
+jobs:
+  feed-buffer:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    # ✅ 1. On checkout la branche cible (QUA ou PRD)
+    - name: Checkout target branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.base.ref }}
+
+    # ✅ 2. On détecte le sens de la promotion
+    - name: Detect promotion type
+      id: detect
+      run: |
+        SOURCE="${{ github.event.pull_request.head.ref }}"
+        TARGET="${{ github.event.pull_request.base.ref }}"
+
+        echo "SOURCE=$SOURCE"
+        echo "TARGET=$TARGET"
+
+        if [ "$SOURCE" = "DEV" ] && [ "$TARGET" = "QUA" ]; then
+          echo "MODE=DEV_TO_QUA" >> $GITHUB_OUTPUT
+        elif [ "$SOURCE" = "QUA" ] && [ "$TARGET" = "PRD" ]; then
+          echo "MODE=QUA_TO_PRD" >> $GITHUB_OUTPUT
+        else
+          echo "MODE=UNSUPPORTED" >> $GITHUB_OUTPUT
+        fi
+
+    # ✅ 3. Alimentation du buffer selon le mode
+    - name: Feed deploy_tmp.txt
+      if: steps.detect.outputs.MODE != 'UNSUPPORTED'
+      run: |
+        MODE="${{ steps.detect.outputs.MODE }}"
+        echo "Promotion mode: $MODE"
+
+        if [ "$MODE" = "DEV_TO_QUA" ]; then
+          echo "➡️ D
