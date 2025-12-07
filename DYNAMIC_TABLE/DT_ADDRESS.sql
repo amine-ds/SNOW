@@ -6,7 +6,7 @@ create or replace dynamic table DEV_EMEA.SILV.DT_ADDRESS(
 	POSTALCODE
 ) target_lag = '1 hour' refresh_mode = AUTO initialize = ON_CREATE warehouse = DEV_DATA
  as
-        select AddressID,
+        select AddressID as AddressID,
         AddressLine1,
         City,
         StateProvinceID,
