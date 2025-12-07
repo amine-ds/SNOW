@@ -59,7 +59,7 @@ jobs:
           git fetch origin QUA
           git checkout origin/QUA -- deploy_tmp.txt
 
-          sort -u deploy_tmp.txt > deploy_tmp_clean.txt
+          awk '!seen[$0]++' deploy_tmp.txt | sed '/^$/d' > deploy_tmp_clean.txt
           mv deploy_tmp_clean.txt deploy_tmp.txt
           exit 0
         fi
