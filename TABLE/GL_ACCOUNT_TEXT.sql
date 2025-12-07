@@ -1,4 +1,4 @@
-create or replace TABLE "0GL_ACCOUNT_TEXT" (
+create or replace TABLE BROZ."0GL_ACCOUNT_TEXT" (
 	LANGU VARCHAR(1),
 	KEY1 VARCHAR(60),
 	KEY2 VARCHAR(32),
@@ -8,3 +8,4 @@ create or replace TABLE "0GL_ACCOUNT_TEXT" (
 	TXTMD VARCHAR(40),
 	TXTLG VARCHAR(60)
 );
+
