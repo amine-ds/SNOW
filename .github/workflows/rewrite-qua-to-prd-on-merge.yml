@@ -1,0 +1,52 @@
+name: Rewrite SQL on QUA → PRD Merge
+
+on:
+  pull_request:
+    branches:
+      - PRD
+    types:
+      - closed
+
+jobs:
+  rewrite:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'PRD' && github.event.pull_request.head.ref == 'QUA'
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout PRD branch
+      uses: actions/checkout@v4
+      with:
+        ref: PRD
+        fetch-depth: 0
+
+    - name: Show occurrences BEFORE rewrite
+      run: |
+        echo "🔍 QUA_DATA / QUA_EMEA BEFORE rewrite:"
+        grep -R --line-number -E "QUA_DATA|QUA_EMEA" . || echo "No QUA occurrences found"
+
+    - name: Rewrite SQL for PRD (simple & safe)
+      run: |
+        echo "🔁 Rewriting QUA → PRD"
+
+        # ✅ Warehouse
+        find . -type f -name "*.sql" -exec sed -i 's/warehouse = QUA_DATA/warehouse = PRD_DATA/g' {} \;
+        find . -type f -name "*.sql" -exec sed -i 's/WAREHOUSE = QUA_DATA/WAREHOUSE = PRD_DATA/g' {} \;
+
+        # ✅ Database
+        find . -type f -name "*.sql" -exec sed -i 's/QUA_EMEA/PRD_EMEA/g' {} \;
+
+    - name: Show occurrences AFTER rewrite
+      run: |
+        echo "🔍 QUA_DATA / QUA_EMEA AFTER rewrite:"
+        grep -R --line-number -E "QUA_DATA|QUA_EMEA" . || echo "No QUA occurrences found"
+
+    - name: Commit & push changes into PRD
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+
+        git status
+        git add .
+        git commit -m "AUTO: Rewrite QUA → PRD (warehouse + db)" || echo "No changes to commit"
+        git push origin PRD
